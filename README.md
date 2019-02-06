@@ -1,4 +1,4 @@
-# RunningDread
+# Running Dread Updates
 
 [ Update 0.1 ]
 

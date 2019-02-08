@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using TMPro;
 
 public class PlayerControl : MonoBehaviour
 {
@@ -9,9 +10,13 @@ public class PlayerControl : MonoBehaviour
     Animator PlayerAnim;
     CapsuleCollider2D PCollider2D;
 
-    public float PlayerSpeed;
+    public GameObject SpecialTrail;
+    public GameObject SpecialText;
+    public TextMeshProUGUI TimerSpecial;
+
+    public float PlayerSpeed, newTimer;
     bool FacingRight, isDown, isDead;
-    public bool isGrounded;
+    public bool isGrounded, SecuryJump = true, isSpecial;
 
     void Start()
     {
@@ -23,13 +28,19 @@ public class PlayerControl : MonoBehaviour
     void Update() {
         Move();
 
+        if (isGrounded && SecuryJump)
+            Jump();
+
         if (isDead) {
+            GameManager.NewInstance.PlayerDeaths++;
             SceneManager.LoadScene(0);
         }
+
+        if(isSpecial)
+            StartSpecialTimer();
     }
 
-    private void Move()
-    {
+    private void Move() {
         float moveX = Input.GetAxis("Horizontal");
         float moveY = Input.GetAxis("Vertical");
 
@@ -47,11 +58,6 @@ public class PlayerControl : MonoBehaviour
             PlayerAnim.SetBool("isRunning", false);
         }
 
-        if ((Input.GetAxis("Jump2") != 0) && isGrounded) {
-            isGrounded = false;
-            rb2d.AddForce(Vector2.up * 50);
-        }
-
         if ((Input.GetAxis("Vertical") < 0) && isGrounded) {
             PlayerAnim.SetBool("isDown", true);
             PCollider2D.size = new Vector2(PCollider2D.size.x, 0.2f);
@@ -63,6 +69,37 @@ public class PlayerControl : MonoBehaviour
             PCollider2D.size = new Vector2(PCollider2D.size.x, 0.437f);
             PCollider2D.offset = new Vector2(PCollider2D.offset.x, -0.11f);
         }
+
+        if ((Input.GetAxis("Jump")) != 0) {
+            if (!isSpecial)
+                StartCoroutine(SpecialActive());
+        }
+    }
+
+    IEnumerator JumperSystem()
+    {
+        isGrounded = false;
+        rb2d.AddForce(Vector2.up * 150);
+        yield return new WaitForSeconds(0.6f);
+        SecuryJump = true;
+    }
+
+    IEnumerator SpecialActive() {
+        isSpecial = true;
+        SpecialTrail.SetActive(true);
+        SpecialText.SetActive(true);
+        yield return new WaitForSeconds(2);
+        SpecialTrail.SetActive(false);
+        SpecialText.SetActive(false);
+        isSpecial = false;
+        newTimer = 0;
+    }
+
+    private void Jump() {
+        if ((Input.GetAxis("Jump2") != 0))  {
+            SecuryJump = false;
+            StartCoroutine(JumperSystem());
+        }
     }
 
     private void Flip() {
@@ -73,8 +110,15 @@ public class PlayerControl : MonoBehaviour
         transform.localScale = pScale;
     }
 
+    private void StartSpecialTimer() {
+        newTimer += Time.deltaTime;
+        TimerSpecial.text = newTimer.ToString("f1");
+    }
+
     private void OnTriggerEnter2D(Collider2D collision) {
-        isGrounded = true;
+        if (rb2d.IsTouching(collision) && SecuryJump) { 
+            isGrounded = true;
+        }
 
         if (collision.CompareTag("Trampolim")) { 
             rb2d.AddForce(Vector2.up * 300);
@@ -83,14 +127,13 @@ public class PlayerControl : MonoBehaviour
         if (collision.CompareTag("Dowing")) {
             isDown = true;
         }
-
-        if (collision.CompareTag("Danger")){
-            isDead = true;
-        }
     }
 
-    private void OnTriggerStay2D(Collider2D collision)
-    {
+    private void OnTriggerStay2D(Collider2D collision) {
+        if (collision.CompareTag("Danger") && !isSpecial) {
+            isDead = true;
+        }
+
         isGrounded = true;
     }
 
